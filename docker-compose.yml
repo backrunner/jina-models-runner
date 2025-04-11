@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  jina-models-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jina-models-api
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - USE_MLX=False
+      - MODEL_CACHE_DIR=/app/models
+      - EMBEDDINGS_MODEL_ID=jinaai/jina-embeddings-v3
+      - RERANKER_MODEL_ID=jinaai/jina-reranker-v2-base-multilingual
+      # 配置是否强制重新下载模型 (true/false)
+      - FORCE_DOWNLOAD=false
+      # 如果需要访问私有模型，取消下行注释并添加你的令牌
+      # - HUGGINGFACE_TOKEN=your_token_here
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s 
