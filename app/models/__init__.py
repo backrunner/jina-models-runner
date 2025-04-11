@@ -1,3 +1,3 @@
 """
-模型模块提供各种AI模型的接口
+Models module provides interfaces for various AI models
 """ 

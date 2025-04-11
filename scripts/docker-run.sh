@@ -1,64 +1,69 @@
 #!/bin/bash
 
-# 获取脚本所在目录的绝对路径
+# Get absolute path of the script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# 获取项目根目录的绝对路径
+# Get absolute path of the project root directory
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# 设置颜色
+# Set up colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 显示帮助信息
+# Default settings
+IMAGE_NAME="jinaai/jina-models-runner"
+IMAGE_TAG="latest"
+HOST="0.0.0.0"
+PORT="8000"
+CONTAINER_NAME="jina-models-runner"
+MODEL_CACHE_DIR="$PROJECT_ROOT/models"
+LOGS_DIR="$PROJECT_ROOT/logs"
+REMOVE=false
+FORCE=false
+GPU=false
+DETACHED=false
+
+# Show help
 show_help() {
-    echo "用法: $0 [选项]"
+    echo "Usage: $0 [options]"
     echo ""
-    echo "选项:"
-    echo "  -h, --help           显示此帮助信息"
-    echo "  -b, --build          运行前构建镜像"
-    echo "  -f, --force          强制重新下载模型"
-    echo "  -d, --detach         后台运行容器"
-    echo "  -t, --token TOKEN    设置HuggingFace令牌"
-    echo "  -p, --port PORT      设置端口 (默认: 8000)"
-    echo "  -c, --compose        使用docker-compose (默认)"
-    echo "  -r, --run            使用docker run 而不是 docker-compose"
-    echo "  -q, --quantize TYPE  指定ONNX量化类型 (none, fp16, int8, uint8, quantized, q4, bnb4)"
+    echo "Options:"
+    echo "  -h, --help              Display this help message"
+    echo "  -i, --image IMAGE_NAME  Set Docker image name (default: $IMAGE_NAME)"
+    echo "  -t, --tag TAG           Set Docker image tag (default: $IMAGE_TAG)"
+    echo "  -n, --name NAME         Set container name (default: $CONTAINER_NAME)"
+    echo "  -p, --port PORT         Set host port (default: $PORT)"
+    echo "  -m, --models DIR        Set models directory (default: $MODEL_CACHE_DIR)"
+    echo "  -l, --logs DIR          Set logs directory (default: $LOGS_DIR)"
+    echo "  -g, --gpu               Enable GPU support"
+    echo "  -r, --rm                Remove container when stopped"
+    echo "  -f, --force             Force recreate container if exists"
+    echo "  -d, --detach            Run container in detached mode"
     echo ""
     exit 0
 }
 
-# 解析命令行参数
-BUILD=false
-FORCE_DOWNLOAD=false
-DETACH=""
-HF_TOKEN=""
-PORT=8000
-USE_COMPOSE=true
-ONNX_QUANTIZATION="none"  # 默认使用无量化的ONNX模型
-
+# Parse command line arguments
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
         -h|--help)
             show_help
             ;;
-        -b|--build)
-            BUILD=true
+        -i|--image)
+            IMAGE_NAME="$2"
+            shift
             shift
             ;;
-        -f|--force)
-            FORCE_DOWNLOAD=true
+        -t|--tag)
+            IMAGE_TAG="$2"
+            shift
             shift
             ;;
-        -d|--detach)
-            DETACH="-d"
-            shift
-            ;;
-        -t|--token)
-            HF_TOKEN="$2"
+        -n|--name)
+            CONTAINER_NAME="$2"
             shift
             shift
             ;;
@@ -67,115 +72,134 @@ while [[ $# -gt 0 ]]; do
             shift
             shift
             ;;
-        -c|--compose)
-            USE_COMPOSE=true
+        -m|--models)
+            MODEL_CACHE_DIR="$2"
+            shift
             shift
             ;;
-        -r|--run)
-            USE_COMPOSE=false
+        -l|--logs)
+            LOGS_DIR="$2"
+            shift
             shift
             ;;
-        -q|--quantize)
-            ONNX_QUANTIZATION="$2"
+        -g|--gpu)
+            GPU=true
             shift
+            ;;
+        -r|--rm)
+            REMOVE=true
+            shift
+            ;;
+        -f|--force)
+            FORCE=true
+            shift
+            ;;
+        -d|--detach)
+            DETACHED=true
             shift
             ;;
         *)
-            echo -e "${RED}未知选项: $1${NC}"
+            echo -e "${RED}Unknown option: $key${NC}"
             show_help
             ;;
     esac
 done
 
-# 验证量化类型
-VALID_QUANTIZATION=false
-for type in "none" "fp16" "int8" "uint8" "quantized" "q4" "bnb4"; do
-    if [ "$ONNX_QUANTIZATION" = "$type" ]; then
-        VALID_QUANTIZATION=true
-        break
-    fi
-done
+# Create necessary directories
+mkdir -p "$MODEL_CACHE_DIR" "$LOGS_DIR"
 
-if [ "$VALID_QUANTIZATION" = false ]; then
-    echo -e "${RED}无效的量化类型: $ONNX_QUANTIZATION${NC}"
-    echo -e "${YELLOW}有效值: none, fp16, int8, uint8, quantized, q4, bnb4${NC}"
+# Check if container exists
+CONTAINER_EXISTS=$(docker ps -a -q -f name="^/$CONTAINER_NAME$")
+if [ -n "$CONTAINER_EXISTS" ]; then
+    if [ "$FORCE" = true ]; then
+        echo -e "${YELLOW}Container '$CONTAINER_NAME' already exists. Removing...${NC}"
+        docker rm -f "$CONTAINER_NAME" > /dev/null
+    else
+        # Check if container is running
+        CONTAINER_RUNNING=$(docker ps -q -f name="^/$CONTAINER_NAME$")
+        if [ -n "$CONTAINER_RUNNING" ]; then
+            echo -e "${YELLOW}Container '$CONTAINER_NAME' is already running.${NC}"
+            echo -e "${YELLOW}To force recreate, use --force option.${NC}"
+            echo -e "${YELLOW}To view logs: docker logs -f $CONTAINER_NAME${NC}"
+            exit 0
+        else
+            echo -e "${YELLOW}Starting existing container '$CONTAINER_NAME'...${NC}"
+            docker start "$CONTAINER_NAME"
+            
+            if [ "$?" -ne 0 ]; then
+                echo -e "${RED}Failed to start container!${NC}"
+                echo -e "${YELLOW}To force recreate, use --force option.${NC}"
+                exit 1
+            fi
+            
+            echo -e "${GREEN}Container started successfully!${NC}"
+            echo -e "${YELLOW}To view logs: docker logs -f $CONTAINER_NAME${NC}"
+            echo -e "${BLUE}Service available at: http://$HOST:$PORT${NC}"
+            exit 0
+        fi
+    fi
+fi
+
+# Build docker run command
+DOCKER_CMD="docker run"
+
+# Add options
+if [ "$REMOVE" = true ]; then
+    DOCKER_CMD="$DOCKER_CMD --rm"
+fi
+
+if [ "$DETACHED" = true ]; then
+    DOCKER_CMD="$DOCKER_CMD -d"
+else
+    DOCKER_CMD="$DOCKER_CMD -it"
+fi
+
+# Add GPU support if requested
+if [ "$GPU" = true ]; then
+    # Check if nvidia-docker or docker with gpu support is available
+    if command -v nvidia-docker &> /dev/null; then
+        echo -e "${YELLOW}Using nvidia-docker for GPU support${NC}"
+        DOCKER_CMD="nvidia-docker run"
+    elif docker info | grep -q "Runtimes:.*nvidia"; then
+        echo -e "${YELLOW}Using docker with nvidia runtime for GPU support${NC}"
+        DOCKER_CMD="$DOCKER_CMD --runtime=nvidia"
+    elif docker info | grep -q "GPU"; then
+        echo -e "${YELLOW}Using docker with GPU support${NC}"
+        DOCKER_CMD="$DOCKER_CMD --gpus all"
+    else
+        echo -e "${RED}GPU support requested but not available!${NC}"
+        echo -e "${YELLOW}Continuing without GPU support...${NC}"
+    fi
+fi
+
+# Add name, port mapping, and volume mounts
+DOCKER_CMD="$DOCKER_CMD --name $CONTAINER_NAME -p $PORT:8000"
+DOCKER_CMD="$DOCKER_CMD -v $MODEL_CACHE_DIR:/app/models"
+DOCKER_CMD="$DOCKER_CMD -v $LOGS_DIR:/app/logs"
+
+# Add environment variables
+DOCKER_CMD="$DOCKER_CMD -e HOST=0.0.0.0 -e PORT=8000"
+DOCKER_CMD="$DOCKER_CMD -e MODEL_CACHE_DIR=/app/models"
+
+# Add image name
+DOCKER_CMD="$DOCKER_CMD $IMAGE_NAME:$IMAGE_TAG"
+
+echo -e "${BLUE}Starting Jina Models Runner container...${NC}"
+echo -e "${GREEN}Container name: $CONTAINER_NAME${NC}"
+echo -e "${GREEN}Image: $IMAGE_NAME:$IMAGE_TAG${NC}"
+echo -e "${GREEN}Port mapping: $PORT:8000${NC}"
+echo -e "${GREEN}Models directory: $MODEL_CACHE_DIR${NC}"
+echo -e "${GREEN}Logs directory: $LOGS_DIR${NC}"
+
+# Execute docker run command
+echo -e "${YELLOW}Running command: $DOCKER_CMD${NC}"
+exec $DOCKER_CMD
+
+# This code won't execute due to the exec above, but kept for reference
+if [ "$?" -ne 0 ]; then
+    echo -e "${RED}Failed to start container!${NC}"
     exit 1
 fi
 
-# 切换到项目根目录
-cd "$PROJECT_ROOT"
-
-# 确保模型目录存在
-mkdir -p "$PROJECT_ROOT/models" "$PROJECT_ROOT/logs"
-
-# 根据是否使用docker-compose执行不同的命令
-if [ "$USE_COMPOSE" = true ]; then
-    # 使用docker-compose
-    echo -e "${BLUE}使用docker-compose启动服务...${NC}"
-    
-    # 构建镜像（如果需要）
-    if [ "$BUILD" = true ]; then
-        echo -e "${YELLOW}构建镜像...${NC}"
-        docker-compose build
-    fi
-    
-    # 设置环境变量
-    export PORT="$PORT"
-    export USE_ONNX="true"
-    export ONNX_QUANTIZATION="$ONNX_QUANTIZATION"
-    
-    if [ -n "$HF_TOKEN" ]; then
-        export HUGGINGFACE_TOKEN="$HF_TOKEN"
-    fi
-    if [ "$FORCE_DOWNLOAD" = true ]; then
-        export FORCE_DOWNLOAD="true"
-    fi
-    
-    # 启动服务
-    if [ -n "$DETACH" ]; then
-        echo -e "${YELLOW}后台启动容器...${NC}"
-        docker-compose up -d
-    else
-        echo -e "${YELLOW}前台启动容器...${NC}"
-        docker-compose up
-    fi
-else
-    # 使用docker run
-    echo -e "${BLUE}使用docker run启动服务...${NC}"
-    
-    # 构建镜像（如果需要）
-    if [ "$BUILD" = true ]; then
-        echo -e "${YELLOW}构建镜像...${NC}"
-        docker build -t jina-models-api .
-    fi
-    
-    # 设置环境变量参数
-    ENV_PARAMS="-e HOST=0.0.0.0 -e PORT=$PORT -e USE_MLX=False -e USE_ONNX=true -e ONNX_QUANTIZATION=$ONNX_QUANTIZATION"
-    if [ -n "$HF_TOKEN" ]; then
-        ENV_PARAMS="$ENV_PARAMS -e HUGGINGFACE_TOKEN=$HF_TOKEN"
-    fi
-    if [ "$FORCE_DOWNLOAD" = true ]; then
-        ENV_PARAMS="$ENV_PARAMS -e FORCE_DOWNLOAD=true"
-    fi
-    
-    # 启动容器
-    echo -e "${YELLOW}启动容器...${NC}"
-    docker run --name jina-models-api \
-        -p $PORT:$PORT \
-        $ENV_PARAMS \
-        -v "$PROJECT_ROOT/models:/app/models" \
-        -v "$PROJECT_ROOT/logs:/app/logs" \
-        $DETACH \
-        --restart unless-stopped \
-        jina-models-api
-fi
-
-# 如果是后台启动，显示访问信息
-if [ -n "$DETACH" ]; then
-    echo -e "${GREEN}✅ 服务已在后台启动${NC}"
-    echo -e "${BLUE}服务地址: http://localhost:$PORT${NC}"
-    echo -e "${BLUE}健康检查: http://localhost:$PORT/health${NC}"
-    echo -e "${BLUE}要查看日志: docker logs jina-models-api${NC}"
-    echo -e "${BLUE}要停止服务: docker stop jina-models-api${NC}"
-    echo -e "${BLUE}使用的ONNX量化类型: ${ONNX_QUANTIZATION}${NC}"
-fi 
+echo -e "${GREEN}Container started successfully!${NC}"
+echo -e "${BLUE}Service available at: http://$HOST:$PORT${NC}" 

@@ -1,3 +1,3 @@
 """
-API模块提供REST API接口
+API module provides REST API interfaces
 """ 

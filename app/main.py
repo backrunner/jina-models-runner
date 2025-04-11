@@ -10,7 +10,7 @@ from .api.router import router
 from .config import Config
 from .utils.logger import setup_logger
 
-# 设置日志
+# Setup logging
 log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 os.makedirs(log_dir, exist_ok=True)
 logger = setup_logger(
@@ -18,14 +18,14 @@ logger = setup_logger(
     log_level=logging.INFO
 )
 
-# 创建FastAPI应用
+# Create FastAPI application
 app = FastAPI(
     title="Jina Models API Service",
     description="An Ollama-compatible API server for Jina embeddings and reranker models",
     version="0.1.0"
 )
 
-# 添加CORS中间件
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,7 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 请求计时中间件
+# Request timing middleware
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
@@ -43,17 +43,17 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Process-Time"] = str(process_time)
     return response
 
-# 包含路由
+# Include routes
 app.include_router(router)
 
-# 健康检查端点
+# Health check endpoint
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
-# 主函数
+# Main function
 def main():
-    """启动服务器的主入口点"""
+    """Main entry point for starting the server"""
     logger.info(f"Starting server on {Config.HOST}:{Config.PORT}")
     logger.info(f"MLX acceleration: {Config.USE_MLX}")
     uvicorn.run(

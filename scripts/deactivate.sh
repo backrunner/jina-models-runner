@@ -1,23 +1,31 @@
 #!/bin/bash
 
-# 检测脚本是否被source执行
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    echo "错误: 此脚本必须通过source命令执行，例如:"
-    echo "    source $(basename ${BASH_SOURCE[0]})"
-    exit 1
-fi
+# Get absolute path of the script directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Get absolute path of the project root directory
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# 检查虚拟环境是否激活
-if [[ "$VIRTUAL_ENV" == "" ]]; then
-    echo "当前没有激活的虚拟环境"
+# Set up colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Check if the virtual environment is activated
+if [[ -z "$VIRTUAL_ENV" ]]; then
+    echo -e "${YELLOW}Virtual environment is not active.${NC}"
     return 0
 fi
 
-# 保存当前虚拟环境路径用于显示
-CURRENT_VENV=$VIRTUAL_ENV
-
-# 退出虚拟环境
+# Deactivate the virtual environment
+echo -e "${BLUE}Deactivating Jina Models environment...${NC}"
 deactivate
 
-# 显示结果
-echo "已退出虚拟环境: $CURRENT_VENV" 
+# Check if deactivation was successful
+if [[ -z "$VIRTUAL_ENV" ]]; then
+    echo -e "${GREEN}✅ Virtual environment deactivated successfully!${NC}"
+else
+    echo -e "${RED}Failed to deactivate the virtual environment.${NC}"
+    return 1
+fi 

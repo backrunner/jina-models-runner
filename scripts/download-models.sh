@@ -1,57 +1,57 @@
 #!/bin/bash
 
-# 获取脚本所在目录的绝对路径
+# Get absolute path of the script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# 获取项目根目录的绝对路径
+# Get absolute path of the project root directory
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# 设置颜色
+# Set up colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 设置模型缓存目录
+# Set model cache directory
 MODEL_CACHE_DIR="$PROJECT_ROOT/models"
 mkdir -p "$MODEL_CACHE_DIR"
 
-# 检查虚拟环境是否激活
+# Check if virtual environment is activated
 if [[ "$VIRTUAL_ENV" == "" ]]; then
-    echo -e "${YELLOW}虚拟环境未激活，正在激活...${NC}"
+    echo -e "${YELLOW}Virtual environment not activated, activating now...${NC}"
     source "$PROJECT_ROOT/bin/activate"
     if [ $? -ne 0 ]; then
-        echo -e "${RED}激活虚拟环境失败!${NC}"
-        echo -e "${RED}请先运行 'source scripts/activate.sh'${NC}"
+        echo -e "${RED}Failed to activate virtual environment!${NC}"
+        echo -e "${RED}Please run 'source scripts/activate.sh' first${NC}"
         exit 1
     fi
-    echo -e "${GREEN}虚拟环境已激活: $(which python)${NC}"
+    echo -e "${GREEN}Virtual environment activated: $(which python)${NC}"
 fi
 
-# 确保huggingface_hub已安装
+# Ensure huggingface_hub is installed
 python -c "import huggingface_hub" 2>/dev/null
 if [ $? -ne 0 ]; then
-    echo -e "${YELLOW}huggingface_hub未安装，正在安装...${NC}"
+    echo -e "${YELLOW}huggingface_hub not installed, installing now...${NC}"
     pip install huggingface_hub
 fi
 
-# 显示帮助信息
+# Show help information
 show_help() {
-    echo "用法: $0 [选项]"
+    echo "Usage: $0 [options]"
     echo ""
-    echo "选项:"
-    echo "  -h, --help           显示此帮助信息"
-    echo "  -e, --embedding      仅下载嵌入模型 (jinaai/jina-embeddings-v3)"
-    echo "  -r, --reranker       仅下载重排序模型 (jinaai/jina-reranker-v2-base-multilingual)"
-    echo "  -t, --token TOKEN    指定HuggingFace令牌"
-    echo "  -f, --force          强制重新下载，不使用缓存"
+    echo "Options:"
+    echo "  -h, --help           Display this help information"
+    echo "  -e, --embedding      Download only embedding model (jinaai/jina-embeddings-v3)"
+    echo "  -r, --reranker       Download only reranker model (jinaai/jina-reranker-v2-base-multilingual)"
+    echo "  -t, --token TOKEN    Specify HuggingFace token"
+    echo "  -f, --force          Force re-download, don't use cache"
     echo ""
-    echo "如果不指定-e或-r选项，则会下载两个模型"
+    echo "If neither -e nor -r options are specified, both models will be downloaded"
     echo ""
     exit 0
 }
 
-# 解析命令行参数
+# Parse command line arguments
 EMBEDDING_ONLY=false
 RERANKER_ONLY=false
 FORCE=""
@@ -81,95 +81,95 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo -e "${RED}未知选项: $1${NC}"
+            echo -e "${RED}Unknown option: $1${NC}"
             show_help
             ;;
     esac
 done
 
-# 设置模型路径
+# Set model paths
 EMBEDDING_MODEL_ID="jinaai/jina-embeddings-v3"
 EMBEDDING_MODEL_PATH="$MODEL_CACHE_DIR/jina-embeddings-v3"
 
 RERANKER_MODEL_ID="jinaai/jina-reranker-v2-base-multilingual"
 RERANKER_MODEL_PATH="$MODEL_CACHE_DIR/jina-reranker-v2-base-multilingual"
 
-# 环境变量设置
+# Environment variable setup
 MODEL_ENV=""
 if [ -n "$HF_TOKEN" ]; then
     MODEL_ENV="HUGGINGFACE_TOKEN=$HF_TOKEN"
 fi
 
-# 如果两个标志都未设置，下载两个模型
+# If neither flag is set, download both models
 if [ "$EMBEDDING_ONLY" = false ] && [ "$RERANKER_ONLY" = false ]; then
     EMBEDDING_ONLY=true
     RERANKER_ONLY=true
 fi
 
-# 下载嵌入模型
+# Download embedding model
 if [ "$EMBEDDING_ONLY" = true ]; then
-    echo -e "${BLUE}开始下载嵌入模型: ${EMBEDDING_MODEL_ID}${NC}"
+    echo -e "${BLUE}Starting download of embedding model: ${EMBEDDING_MODEL_ID}${NC}"
     if [ -d "$EMBEDDING_MODEL_PATH" ] && [ -z "$FORCE" ]; then
-        echo -e "${YELLOW}嵌入模型已存在于 $EMBEDDING_MODEL_PATH${NC}"
-        echo -e "${YELLOW}使用 --force 参数强制重新下载${NC}"
+        echo -e "${YELLOW}Embedding model already exists at $EMBEDDING_MODEL_PATH${NC}"
+        echo -e "${YELLOW}Use --force parameter to force re-download${NC}"
     else
-        echo -e "${YELLOW}下载中...这可能需要一些时间${NC}"
+        echo -e "${YELLOW}Downloading... this may take some time${NC}"
         $MODEL_ENV python -c "from huggingface_hub import snapshot_download; snapshot_download('$EMBEDDING_MODEL_ID', cache_dir='$MODEL_CACHE_DIR', local_dir='$EMBEDDING_MODEL_PATH', $FORCE)"
         if [ $? -eq 0 ]; then
-            echo -e "${GREEN}嵌入模型下载成功!${NC}"
+            echo -e "${GREEN}Embedding model download successful!${NC}"
         else
-            echo -e "${RED}嵌入模型下载失败!${NC}"
+            echo -e "${RED}Embedding model download failed!${NC}"
             exit 1
         fi
     fi
 fi
 
-# 下载重排序模型
+# Download reranker model
 if [ "$RERANKER_ONLY" = true ]; then
-    echo -e "${BLUE}开始下载重排序模型: ${RERANKER_MODEL_ID}${NC}"
+    echo -e "${BLUE}Starting download of reranker model: ${RERANKER_MODEL_ID}${NC}"
     if [ -d "$RERANKER_MODEL_PATH" ] && [ -z "$FORCE" ]; then
-        echo -e "${YELLOW}重排序模型已存在于 $RERANKER_MODEL_PATH${NC}"
-        echo -e "${YELLOW}使用 --force 参数强制重新下载${NC}"
+        echo -e "${YELLOW}Reranker model already exists at $RERANKER_MODEL_PATH${NC}"
+        echo -e "${YELLOW}Use --force parameter to force re-download${NC}"
     else
-        echo -e "${YELLOW}下载中...这可能需要一些时间${NC}"
+        echo -e "${YELLOW}Downloading... this may take some time${NC}"
         $MODEL_ENV python -c "from huggingface_hub import snapshot_download; snapshot_download('$RERANKER_MODEL_ID', cache_dir='$MODEL_CACHE_DIR', local_dir='$RERANKER_MODEL_PATH', $FORCE)"
         if [ $? -eq 0 ]; then
-            echo -e "${GREEN}重排序模型下载成功!${NC}"
+            echo -e "${GREEN}Reranker model download successful!${NC}"
             
-            # 检查重排序模型是否包含ONNX模型
+            # Check if the reranker model includes ONNX models
             ONNX_DIR="$RERANKER_MODEL_PATH/onnx"
             if [ -d "$ONNX_DIR" ]; then
-                echo -e "${GREEN}检测到ONNX模型目录: $ONNX_DIR${NC}"
-                echo -e "${YELLOW}查看可用的ONNX模型:${NC}"
+                echo -e "${GREEN}ONNX model directory detected: $ONNX_DIR${NC}"
+                echo -e "${YELLOW}Available ONNX models:${NC}"
                 ls -lh "$ONNX_DIR" | grep -E "\.onnx$" | awk '{print "  "$9" ("$5")"}'
                 
-                # 提供量化模型的说明
-                echo -e "\n${BLUE}ONNX量化模型选项:${NC}"
-                echo -e "  * model.onnx - 无量化模型，最高精度但文件最大"
-                echo -e "  * model_fp16.onnx - FP16量化，平衡精度与大小"
-                echo -e "  * model_int8.onnx - INT8量化，体积小，略微降低精度"
-                echo -e "  * model_uint8.onnx - UINT8量化，体积小，略微降低精度"
-                echo -e "  * model_quantized.onnx - 通用量化"
-                echo -e "  * model_q4.onnx - 4位量化，最小体积但可能降低精度"
-                echo -e "  * model_bnb4.onnx - BNB 4位量化，极小体积"
+                # Provide quantized model information
+                echo -e "\n${BLUE}ONNX Quantization Options:${NC}"
+                echo -e "  * model.onnx - No quantization, highest accuracy but largest file"
+                echo -e "  * model_fp16.onnx - FP16 quantization, balance of accuracy and size"
+                echo -e "  * model_int8.onnx - INT8 quantization, small size, slightly reduced accuracy"
+                echo -e "  * model_uint8.onnx - UINT8 quantization, small size, slightly reduced accuracy"
+                echo -e "  * model_quantized.onnx - General quantization"
+                echo -e "  * model_q4.onnx - 4-bit quantization, smallest size but may reduce accuracy"
+                echo -e "  * model_bnb4.onnx - BNB 4-bit quantization, very small size"
                 
-                echo -e "\n通过设置环境变量选择不同的量化模型:"
-                echo -e "  ${GREEN}export ONNX_QUANTIZATION=none${NC} (默认)"
-                echo -e "  ${GREEN}export ONNX_QUANTIZATION=fp16${NC} (推荐，在Apple Silicon上有良好表现)"
+                echo -e "\nSelect different quantization models by setting environment variables:"
+                echo -e "  ${GREEN}export ONNX_QUANTIZATION=none${NC} (default)"
+                echo -e "  ${GREEN}export ONNX_QUANTIZATION=fp16${NC} (recommended, performs well on Apple Silicon)"
                 echo -e "  ${GREEN}export ONNX_QUANTIZATION=int8${NC}"
                 echo -e "  ${GREEN}export ONNX_QUANTIZATION=uint8${NC}"
                 echo -e "  ${GREEN}export ONNX_QUANTIZATION=quantized${NC}"
                 echo -e "  ${GREEN}export ONNX_QUANTIZATION=q4${NC}"
                 echo -e "  ${GREEN}export ONNX_QUANTIZATION=bnb4${NC}"
             else
-                echo -e "${YELLOW}未检测到ONNX模型目录，某些功能可能无法使用。${NC}"
+                echo -e "${YELLOW}ONNX model directory not detected, some features may not be available.${NC}"
             fi
         else
-            echo -e "${RED}重排序模型下载失败!${NC}"
+            echo -e "${RED}Reranker model download failed!${NC}"
             exit 1
         fi
     fi
 fi
 
-echo -e "${GREEN}✅ 模型下载完成!${NC}"
-echo -e "${BLUE}模型保存在: ${MODEL_CACHE_DIR} 目录下${NC}" 
+echo -e "${GREEN}✅ Model download complete!${NC}"
+echo -e "${BLUE}Models saved in: ${MODEL_CACHE_DIR} directory${NC}" 

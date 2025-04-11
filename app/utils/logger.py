@@ -4,31 +4,31 @@ from logging.handlers import RotatingFileHandler
 import os
 
 def setup_logger(log_file=None, log_level=logging.INFO):
-    """设置应用的日志配置"""
-    # 创建日志格式
+    """Set up application logging configuration"""
+    # Create log format
     log_format = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # 创建根日志记录器
+    # Create root logger
     logger = logging.getLogger()
     logger.setLevel(log_level)
     
-    # 清除现有的处理程序
+    # Clear existing handlers
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
     
-    # 添加控制台处理程序
+    # Add console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(log_format)
     logger.addHandler(console_handler)
     
-    # 如果指定了日志文件，添加文件处理程序
+    # If log file is specified, add file handler
     if log_file:
-        # 确保日志目录存在
+        # Ensure log directory exists
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
         
-        # 添加文件处理程序，最大10MB，保留3个备份
+        # Add file handler, max 10MB, keep 3 backups
         file_handler = RotatingFileHandler(
             log_file, maxBytes=10*1024*1024, backupCount=3
         )

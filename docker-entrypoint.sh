@@ -1,115 +1,115 @@
 #!/bin/bash
 set -e
 
-# 设置颜色
+# Set up colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 设置工作目录
+# Set working directory
 WORKDIR="/app"
 cd "$WORKDIR"
 
-# 设置模型目录和日志目录
+# Set model directory and log directory
 MODEL_DIR="${MODEL_CACHE_DIR:-/app/models}"
 LOG_DIR="/app/logs"
 mkdir -p "$MODEL_DIR" "$LOG_DIR"
 
-# 确保huggingface_hub已安装
+# Ensure huggingface_hub is installed
 python -c "import huggingface_hub" 2>/dev/null
 if [ $? -ne 0 ]; then
-    echo -e "${YELLOW}huggingface_hub未安装，正在安装...${NC}"
+    echo -e "${YELLOW}huggingface_hub not installed, installing...${NC}"
     pip install huggingface_hub
 fi
 
-# 设置模型ID
+# Set model IDs
 EMBEDDING_MODEL_ID="${EMBEDDINGS_MODEL_ID:-jinaai/jina-embeddings-v3}"
 RERANKER_MODEL_ID="${RERANKER_MODEL_ID:-jinaai/jina-reranker-v2-base-multilingual}"
 
-# 设置模型路径
+# Set model paths
 EMBEDDING_MODEL_PATH="$MODEL_DIR/jina-embeddings-v3"
 RERANKER_MODEL_PATH="$MODEL_DIR/jina-reranker-v2-base-multilingual"
 
-# 下载模型函数
+# Download model function
 download_model() {
     local model_id=$1
     local model_path=$2
     local model_name=$3
     
-    echo -e "${BLUE}开始下载${model_name}模型: ${model_id}${NC}"
+    echo -e "${BLUE}Starting download of ${model_name} model: ${model_id}${NC}"
     if [ -d "$model_path" ] && [ "$FORCE_DOWNLOAD" != "true" ]; then
-        echo -e "${YELLOW}${model_name}模型已存在于 $model_path${NC}"
+        echo -e "${YELLOW}${model_name} model already exists at $model_path${NC}"
     else
-        echo -e "${YELLOW}下载中...这可能需要一些时间${NC}"
+        echo -e "${YELLOW}Downloading... this may take some time${NC}"
         
-        # 下载选项
+        # Download options
         local download_opts=""
         if [ "$FORCE_DOWNLOAD" = "true" ]; then
             download_opts="--force-download"
         fi
         
-        # 使用python执行下载，支持HUGGINGFACE_TOKEN环境变量
+        # Use Python to execute download, supports HUGGINGFACE_TOKEN environment variable
         python -c "from huggingface_hub import snapshot_download; snapshot_download('$model_id', cache_dir='$MODEL_DIR', local_dir='$model_path', $download_opts)"
         
         if [ $? -eq 0 ]; then
-            echo -e "${GREEN}${model_name}模型下载成功!${NC}"
+            echo -e "${GREEN}${model_name} model download successful!${NC}"
         else
-            echo -e "${RED}${model_name}模型下载失败!${NC}"
+            echo -e "${RED}${model_name} model download failed!${NC}"
             exit 1
         fi
     fi
 }
 
-# 检查模型并下载
+# Check models and download
 check_and_download_models() {
-    # 检查嵌入模型
+    # Check embedding model
     if [ ! -d "$EMBEDDING_MODEL_PATH" ] || [ "$FORCE_DOWNLOAD" = "true" ]; then
-        download_model "$EMBEDDING_MODEL_ID" "$EMBEDDING_MODEL_PATH" "嵌入"
+        download_model "$EMBEDDING_MODEL_ID" "$EMBEDDING_MODEL_PATH" "Embedding"
     else
-        echo -e "${GREEN}嵌入模型已存在于 $EMBEDDING_MODEL_PATH${NC}"
+        echo -e "${GREEN}Embedding model already exists at $EMBEDDING_MODEL_PATH${NC}"
     fi
     
-    # 检查重排序模型
+    # Check reranker model
     if [ ! -d "$RERANKER_MODEL_PATH" ] || [ "$FORCE_DOWNLOAD" = "true" ]; then
-        download_model "$RERANKER_MODEL_ID" "$RERANKER_MODEL_PATH" "重排序"
+        download_model "$RERANKER_MODEL_ID" "$RERANKER_MODEL_PATH" "Reranker"
     else
-        echo -e "${GREEN}重排序模型已存在于 $RERANKER_MODEL_PATH${NC}"
+        echo -e "${GREEN}Reranker model already exists at $RERANKER_MODEL_PATH${NC}"
     fi
 }
 
-# 环境设置函数
+# Environment setup function
 setup_environment() {
-    echo -e "${BLUE}设置环境变量...${NC}"
+    echo -e "${BLUE}Setting up environment variables...${NC}"
     
-    # 设置模型缓存目录
+    # Set model cache directory
     export MODEL_CACHE_DIR="$MODEL_DIR"
     
-    # 设置模型ID
+    # Set model IDs
     export EMBEDDINGS_MODEL_ID="$EMBEDDING_MODEL_ID"
     export RERANKER_MODEL_ID="$RERANKER_MODEL_ID"
     
-    # 设置其他环境变量
+    # Set other environment variables
     export HOST="${HOST:-0.0.0.0}"
     export PORT="${PORT:-8000}"
     
-    # Docker环境下默认禁用MLX（MLX主要支持Apple Silicon芯片）
+    # Disable MLX by default in Docker environment (MLX primarily supports Apple Silicon chips)
     if [ -z "$USE_MLX" ]; then
         export USE_MLX="False"
     fi
     
-    # 检查CUDA可用性
+    # Check CUDA availability
     python -c "import torch; print(torch.cuda.is_available())" 2>/dev/null | grep -q "True"
     if [ $? -eq 0 ]; then
-        echo -e "${GREEN}检测到CUDA可用${NC}"
+        echo -e "${GREEN}CUDA detected as available${NC}"
         export USE_CUDA="True"
     else
-        echo -e "${YELLOW}CUDA不可用，使用CPU模式${NC}"
+        echo -e "${YELLOW}CUDA not available, using CPU mode${NC}"
         export USE_CUDA="False"
     fi
     
-    echo -e "${GREEN}环境变量设置完成${NC}"
+    echo -e "${GREEN}Environment variables setup complete${NC}"
     echo -e "HOST: $HOST"
     echo -e "PORT: $PORT"
     echo -e "MODEL_CACHE_DIR: $MODEL_CACHE_DIR"
@@ -117,34 +117,34 @@ setup_environment() {
     echo -e "USE_CUDA: $USE_CUDA"
 }
 
-# 启动服务函数
+# Start service function
 start_service() {
-    echo -e "${BLUE}启动Jina模型API服务...${NC}"
+    echo -e "${BLUE}Starting Jina Models API Service...${NC}"
     
-    # 如果提供了额外的命令行参数，则执行这些参数
+    # If additional command line arguments are provided, execute them
     if [ $# -gt 0 ]; then
-        echo -e "${YELLOW}执行命令: $@${NC}"
+        echo -e "${YELLOW}Executing command: $@${NC}"
         exec "$@"
     else
-        # 否则启动默认的服务
-        echo -e "${YELLOW}使用默认配置启动服务${NC}"
+        # Otherwise start the default service
+        echo -e "${YELLOW}Starting service with default configuration${NC}"
         exec python run.py
     fi
 }
 
-# 主函数
+# Main function
 main() {
-    echo -e "${BLUE}======== Jina 模型 API 服务 ========${NC}"
+    echo -e "${BLUE}======== Jina Models API Service ========${NC}"
     
-    # 下载模型
+    # Download models
     check_and_download_models
     
-    # 设置环境
+    # Setup environment
     setup_environment
     
-    # 启动服务
+    # Start service
     start_service "$@"
 }
 
-# 执行主函数，传递所有命令行参数
+# Execute main function, passing all command line arguments
 main "$@" 

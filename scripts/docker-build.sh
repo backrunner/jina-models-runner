@@ -1,54 +1,46 @@
 #!/bin/bash
 
-# 获取脚本所在目录的绝对路径
+set -e
+
+# Get absolute path of the script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# 获取项目根目录的绝对路径
+# Get absolute path of the project root directory
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# 设置颜色
+# Set up colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 设置镜像名称和标签
-IMAGE_NAME="jina-models-api"
-IMAGE_TAG="latest"
+# Parse command line arguments
+VERSION="latest"
+PUSH=false
+ARCH=""
 
-# 显示帮助信息
+# Display help
 show_help() {
-    echo "用法: $0 [选项]"
+    echo "Usage: $0 [options]"
     echo ""
-    echo "选项:"
-    echo "  -h, --help           显示此帮助信息"
-    echo "  -n, --name NAME      设置镜像名称 (默认: $IMAGE_NAME)"
-    echo "  -t, --tag TAG        设置镜像标签 (默认: $IMAGE_TAG)"
-    echo "  -p, --push           构建后推送到Docker仓库"
-    echo "  -c, --compose        使用docker-compose构建"
-    echo "  -f, --force          强制重新构建，不使用缓存"
+    echo "Options:"
+    echo "  -h, --help             Display this help message"
+    echo "  -v, --version VERSION  Set Docker image version (default: latest)"
+    echo "  -p, --push             Push the image to Docker Hub after building"
+    echo "  -a, --arch ARCH        Build for specific architecture (e.g., amd64, arm64)"
     echo ""
     exit 0
 }
 
-# 解析命令行参数
-PUSH=false
-USE_COMPOSE=false
-NO_CACHE=""
-
+# Parse arguments
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
         -h|--help)
             show_help
             ;;
-        -n|--name)
-            IMAGE_NAME="$2"
-            shift
-            shift
-            ;;
-        -t|--tag)
-            IMAGE_TAG="$2"
+        -v|--version)
+            VERSION="$2"
             shift
             shift
             ;;
@@ -56,70 +48,57 @@ while [[ $# -gt 0 ]]; do
             PUSH=true
             shift
             ;;
-        -c|--compose)
-            USE_COMPOSE=true
+        -a|--arch)
+            ARCH="$2"
             shift
-            ;;
-        -f|--force)
-            NO_CACHE="--no-cache"
             shift
             ;;
         *)
-            echo -e "${RED}未知选项: $1${NC}"
+            echo -e "${RED}Unknown option: $key${NC}"
             show_help
             ;;
     esac
 done
 
-# 切换到项目根目录
+# Docker image name
+IMAGE_NAME="jinaai/jina-models-runner"
+TAG="${IMAGE_NAME}:${VERSION}"
+
+echo -e "${BLUE}Building Docker image for Jina Models API Service...${NC}"
+echo -e "${GREEN}Image tag: ${TAG}${NC}"
+
+# Determine build command based on architecture
+BUILD_CMD="docker build"
+if [ -n "$ARCH" ]; then
+    echo -e "${YELLOW}Building for architecture: $ARCH${NC}"
+    BUILD_CMD="$BUILD_CMD --platform linux/$ARCH"
+fi
+
+# Start build
 cd "$PROJECT_ROOT"
+echo -e "${YELLOW}Starting build process...${NC}"
+$BUILD_CMD -t $TAG .
 
-# 构建Docker镜像
-echo -e "${BLUE}开始构建Docker镜像 ${IMAGE_NAME}:${IMAGE_TAG}...${NC}"
-
-if [ "$USE_COMPOSE" = true ]; then
-    # 使用docker-compose构建
-    echo -e "${YELLOW}使用docker-compose构建...${NC}"
-    
-    if [ -n "$NO_CACHE" ]; then
-        docker-compose build --no-cache
-    else
-        docker-compose build
-    fi
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Docker Compose构建失败!${NC}"
-        exit 1
-    fi
-else
-    # 使用docker build命令构建
-    echo -e "${YELLOW}使用docker build构建...${NC}"
-    
-    if [ -n "$NO_CACHE" ]; then
-        docker build $NO_CACHE -t ${IMAGE_NAME}:${IMAGE_TAG} .
-    else
-        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-    fi
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Docker构建失败!${NC}"
-        exit 1
-    fi
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Docker build failed!${NC}"
+    exit 1
 fi
 
-echo -e "${GREEN}镜像构建成功: ${IMAGE_NAME}:${IMAGE_TAG}${NC}"
+echo -e "${GREEN}Docker image built successfully: ${TAG}${NC}"
 
-# 如果需要，推送镜像到仓库
+# Push to Docker Hub if requested
 if [ "$PUSH" = true ]; then
-    echo -e "${YELLOW}正在推送镜像到仓库...${NC}"
-    docker push ${IMAGE_NAME}:${IMAGE_TAG}
+    echo -e "${YELLOW}Pushing image to Docker Hub...${NC}"
+    docker push $TAG
     
     if [ $? -ne 0 ]; then
-        echo -e "${RED}镜像推送失败!${NC}"
+        echo -e "${RED}Docker push failed!${NC}"
+        echo -e "${YELLOW}You may need to run 'docker login' first.${NC}"
         exit 1
     fi
     
-    echo -e "${GREEN}镜像已成功推送到仓库${NC}"
+    echo -e "${GREEN}Image pushed to Docker Hub: ${TAG}${NC}"
 fi
 
-echo -e "${GREEN}✅ 完成!${NC}" 
+echo -e "${GREEN}✅ Build completed successfully!${NC}"
+echo -e "${BLUE}To run the container: docker run -p 8000:8000 ${TAG}${NC}" 

@@ -1,0 +1,101 @@
+You are tasked with generating code for a model inference service project built with PyTorch 2.6 and Python 3.13, primarily running on macOS. The service is designed to handle high-performance model inference, with a strong focus on optimizing performance and preventing resource contention (e.g., CPU/GPU memory, thread/process conflicts). All generated code must adhere to the following guidelines to ensure high quality, maintainability, and efficiency:
+
+Code Quality and Cleanliness:
+
+Write clean, modular, and well-structured code that avoids code smells (e.g., long functions, duplicated logic, unclear variable names).
+
+Follow PEP 8 style guidelines for Python, ensuring consistent formatting and readability.
+
+Use meaningful variable, function, and class names that clearly convey intent.
+
+Organize code logically, separating concerns (e.g., model loading, request handling, inference logic) into distinct modules or classes.
+
+Readability and Maintainability:
+
+Include concise, clear English comments to explain complex logic, design decisions, or non-obvious code sections.
+
+Avoid over-commenting; focus on "why" rather than "what" unless the code is particularly intricate.
+
+Use type hints (PEP 484) to enhance code clarity and enable better tooling support.
+
+Structure code to be easily extensible, following SOLID principles where applicable.
+
+Performance Optimization:
+
+Leverage the latest features of PyTorch 2.6 (e.g., torch.compile, dynamic batching, optimized GPU/CPU operations) to maximize inference speed.
+
+Minimize resource contention by implementing efficient concurrency models (e.g., asynchronous I/O with asyncio, thread/process pools, or task queues).
+
+Optimize memory usage, such as releasing unused tensors (torch.cuda.empty_cache()) and avoiding redundant model copies.
+
+Handle batch inference where possible to reduce overhead for multiple requests.
+
+Use macOS-specific optimizations (e.g., Metal Performance Shaders for Apple Silicon GPUs if applicable).
+
+Concurrency and Resource Management:
+
+Design the service to handle multiple concurrent inference requests efficiently, choosing the appropriate concurrency model (e.g., asyncio for I/O-bound tasks, multiprocessing for CPU/GPU-bound tasks, or frameworks like Triton Inference Server).
+
+Prevent resource contention by limiting the number of concurrent tasks (e.g., using ThreadPoolExecutor or ProcessPoolExecutor with a capped max_workers).
+
+Ensure thread/process safety for model access, using locks (threading.Lock, asyncio.Lock) or shared memory where necessary.
+
+Monitor and log resource usage (e.g., CPU/GPU memory, request latency) to identify bottlenecks.
+
+Modern Practices and Tools:
+
+Use the latest Python 3.13 features (e.g., improved type system, performance enhancements) to write idiomatic code.
+
+Prefer modern libraries and frameworks (e.g., FastAPI for async APIs, uvicorn for serving) over outdated alternatives.
+
+Incorporate logging with the logging module instead of print statements, ensuring logs are informative and configurable (e.g., debug, info, error levels).
+
+Write unit tests using pytest to validate critical components (e.g., model inference, request handling).
+
+Language and Output:
+
+All code, comments, logs, and documentation must be written in English only. Do not use Chinese or any other language.
+
+Log messages should be clear, concise, and include relevant context (e.g., request ID, error details).
+
+Avoid hardcoding values (e.g., file paths, model configurations); use configuration files or environment variables instead.
+
+Error Handling and Robustness:
+
+Implement comprehensive error handling to gracefully manage failures (e.g., invalid input, model errors, resource exhaustion).
+
+Return meaningful HTTP status codes and error messages for API endpoints.
+
+Ensure the service remains stable under high load, with fallback mechanisms (e.g., request queuing) if resources are constrained.
+
+Dependencies and Environment:
+Assume the environment is macOS with access to Apple Silicon GPUs (M1/M2/M3) or Intel CPUs.
+
+Explicitly state required dependencies (e.g., torch==2.6, fastapi, uvicorn) in comments or a requirements.txt snippet.
+
+Avoid unnecessary dependencies to keep the project lightweight.
+
+Example Workflow:
+
+When generating code for an inference endpoint:
+
+Use FastAPI to define an async /infer endpoint accepting JSON input (e.g., {"input_data": [...]}).
+
+Validate input using Pydantic models.
+
+Process inference requests in a thread/process pool to avoid blocking the event loop.
+
+Log request start/completion times and any errors.
+
+Return results in a structured JSON response (e.g., {"result": [...], "status": "success"}).
+
+Constraints:
+
+Do not generate code that assumes unavailable hardware (e.g., NVIDIA GPUs unless specified).
+
+Avoid deprecated PyTorch APIs or Python features incompatible with Python 3.13.
+
+Do not include boilerplate code unless it directly contributes to the solution.
+
+By following these rules, ensure the generated code is production-ready, performant, and maintainable, reflecting best practices for a PyTorch-based inference service on macOS.
+

@@ -1,7 +1,7 @@
 """
-Jina模型API服务
+Jina Models API Service
 
-提供兼容Ollama API的服务，支持jina-embeddings-v3和jina-reranker-v2模型
+Provides an Ollama API-compatible service, supporting jina-embeddings-v3 and jina-reranker-v2 models
 """
 
 __version__ = "0.1.0" 

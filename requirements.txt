@@ -18,3 +18,4 @@ flash-attn>=2.0.0; platform_system == "Linux"
 onnxruntime>=1.17.0; platform_system == "Darwin"
 onnxruntime-gpu>=1.17.0; platform_system == "Linux" and platform_machine != "aarch64"
 onnxruntime>=1.17.0; platform_system == "Linux" and platform_machine == "aarch64" 
+cachetools
