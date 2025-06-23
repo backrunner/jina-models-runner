@@ -218,4 +218,105 @@ This project provides several convenience scripts:
 
 ## License
 
-This project is licensed under the MIT License. Please note that Jina models themselves are subject to different licenses; please refer to each model's HuggingFace page for details. 
+This project is licensed under the MIT License. Please note that Jina models themselves are subject to different licenses; please refer to each model's HuggingFace page for details.
+
+# Jina Models Runner
+
+A high-performance model inference service built with PyTorch 2.6 and Python 3.13, optimized for macOS systems.
+
+## Quick Start
+
+### 1. Initialize Environment
+
+```bash
+# Initialize the virtual environment and install dependencies
+./scripts/init.sh
+```
+
+### 2. Start the Service
+
+```bash
+# Option 1: Use the start script (automatically activates virtual environment)
+./scripts/start.sh
+
+# Option 2: Manually activate environment and start
+source scripts/activate.sh
+./scripts/start.sh
+```
+
+### 3. Download Models
+
+```bash
+# Download both embedding and reranker models (automatically activates virtual environment)
+./scripts/download-models.sh
+
+# Or download specific models
+./scripts/download-models.sh --embedding   # Only embedding model
+./scripts/download-models.sh --reranker    # Only reranker model
+```
+
+## Common Issues
+
+### "python: command not found" Error
+
+This error typically occurs on macOS systems where only `python3` is available by default. The project scripts have been designed to handle this automatically:
+
+**Root Cause:**
+- macOS systems often only provide `python3` command, not `python`
+- Virtual environment needs to be activated to access the `python` command
+- Scripts require the virtual environment to be properly activated
+
+**Automatic Solution:**
+Our scripts now automatically detect and activate the virtual environment when needed. Simply run:
+
+```bash
+./scripts/start.sh       # Automatically activates virtual environment
+./scripts/download-models.sh  # Automatically activates virtual environment
+```
+
+**Manual Solution (if needed):**
+```bash
+# 1. Ensure virtual environment is created
+./scripts/init.sh
+
+# 2. Manually activate virtual environment
+source scripts/activate.sh
+
+# 3. Verify python command is available
+which python  # Should show: /path/to/project/bin/python
+
+# 4. Run your desired script
+./scripts/start.sh
+```
+
+**Environment Verification:**
+```bash
+# Check if virtual environment is activated
+echo $VIRTUAL_ENV  # Should show your project path
+
+# Check python version
+python --version   # Should show Python 3.13.x
+
+# Check available commands
+which python      # Should point to virtual environment
+which python3     # Should point to system python3
+```
+
+## Scripts Overview
+
+| Script | Purpose | Auto-activates Virtual Env |
+|--------|---------|----------------------------|
+| `scripts/init.sh` | Initialize environment and install dependencies | No (creates the environment) |
+| `scripts/activate.sh` | Activate virtual environment manually | N/A (activation script) |
+| `scripts/start.sh` | Start the inference service | ✅ Yes |
+| `scripts/download-models.sh` | Download required models | ✅ Yes |
+| `scripts/stop.sh` | Stop the running service | No |
+| `scripts/restart.sh` | Restart the service | ✅ Yes (via start.sh) |
+
+## Dependencies
+
+- Python 3.13+
+- PyTorch 2.6
+- macOS (Intel or Apple Silicon)
+
+For Apple Silicon Macs, the initialization script will automatically install MLX and ONNX Runtime with CoreML support for optimal performance. 

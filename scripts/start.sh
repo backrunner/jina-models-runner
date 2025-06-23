@@ -17,6 +17,15 @@ NC='\033[0m' # No Color
 # Check if virtual environment is activated
 if [[ "$VIRTUAL_ENV" == "" ]]; then
     echo -e "${YELLOW}Virtual environment not activated, activating now...${NC}"
+    
+    # Check if the virtual environment exists
+    if [ ! -d "$PROJECT_ROOT/bin" ] || [ ! -f "$PROJECT_ROOT/bin/activate" ]; then
+        echo -e "${RED}Virtual environment not found!${NC}"
+        echo -e "${YELLOW}Please initialize the environment first: ./scripts/init.sh${NC}"
+        exit 1
+    fi
+    
+    # Source the virtual environment activation script
     source "$PROJECT_ROOT/bin/activate"
     if [ $? -ne 0 ]; then
         echo -e "${RED}Failed to activate virtual environment!${NC}"
@@ -38,31 +47,66 @@ RELOAD_ARG=""
 WORKERS_ARG=""
 
 # Parse command line arguments
-for arg in "$@"; do
-    case $arg in
+while [[ $# -gt 0 ]]; do
+    case $1 in
         --port=*)
-            PORT_ARG="${arg#*=}"
+            PORT_ARG="${1#*=}"
             shift
+            ;;
+        --port)
+            PORT_ARG="$2"
+            shift 2
             ;;
         --host=*)
-            HOST_ARG="${arg#*=}"
+            HOST_ARG="${1#*=}"
             shift
             ;;
+        --host)
+            HOST_ARG="$2"
+            shift 2
+            ;;
         --log=*)
-            LOG_ARG="${arg#*=}"
+            LOG_ARG="${1#*=}"
             shift
+            ;;
+        --log)
+            LOG_ARG="$2"
+            shift 2
             ;;
         --reload)
             RELOAD_ARG="--reload"
             shift
             ;;
         --workers=*)
-            WORKERS_ARG="${arg#*=}"
+            WORKERS_ARG="${1#*=}"
             shift
+            ;;
+        --workers)
+            WORKERS_ARG="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: $0 [options]"
+            echo ""
+            echo "Options:"
+            echo "  -h, --help              Display this help message"
+            echo "  --port PORT             Set the port (default: 8000)"
+            echo "  --host HOST             Set the host (default: 0.0.0.0)"
+            echo "  --log LEVEL             Set log level (default: info)"
+            echo "  --workers NUMBER        Set number of workers (default: 1)"
+            echo "  --reload                Enable auto-reload for development"
+            echo ""
+            echo "Examples:"
+            echo "  $0 --port 8001"
+            echo "  $0 --host 127.0.0.1 --port 8080"
+            echo "  $0 --workers 4 --log debug"
+            echo ""
+            exit 0
             ;;
         *)
             # Unknown option
-            echo -e "${RED}Unknown option: $arg${NC}"
+            echo -e "${RED}Unknown option: $1${NC}"
+            echo -e "${YELLOW}Use --help for usage information${NC}"
             exit 1
             ;;
     esac
@@ -104,8 +148,11 @@ cd "$PROJECT_ROOT"
 echo -e "${GREEN}Starting service...${NC}"
 
 # Run with Uvicorn
+# Use the virtual environment Python directly to avoid PATH issues
+PYTHON_PATH="$PROJECT_ROOT/bin/python"
+
 if [ -n "$RELOAD_ARG" ]; then
-    python -m uvicorn app.main:app --host $HOST --port $PORT --log-level $LOG_LEVEL $RELOAD_ARG --workers 1
+    $PYTHON_PATH -m uvicorn app.main:app --host $HOST --port $PORT --log-level $LOG_LEVEL $RELOAD_ARG --workers 1
 else
-    python -m uvicorn app.main:app --host $HOST --port $PORT --log-level $LOG_LEVEL --workers $WORKERS
+    $PYTHON_PATH -m uvicorn app.main:app --host $HOST --port $PORT --log-level $LOG_LEVEL --workers $WORKERS
 fi 

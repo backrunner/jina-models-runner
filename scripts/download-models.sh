@@ -19,6 +19,15 @@ mkdir -p "$MODEL_CACHE_DIR"
 # Check if virtual environment is activated
 if [[ "$VIRTUAL_ENV" == "" ]]; then
     echo -e "${YELLOW}Virtual environment not activated, activating now...${NC}"
+    
+    # Check if the virtual environment exists
+    if [ ! -d "$PROJECT_ROOT/bin" ] || [ ! -f "$PROJECT_ROOT/bin/activate" ]; then
+        echo -e "${RED}Virtual environment not found!${NC}"
+        echo -e "${YELLOW}Please initialize the environment first: ./scripts/init.sh${NC}"
+        exit 1
+    fi
+    
+    # Source the virtual environment activation script
     source "$PROJECT_ROOT/bin/activate"
     if [ $? -ne 0 ]; then
         echo -e "${RED}Failed to activate virtual environment!${NC}"
@@ -29,7 +38,9 @@ if [[ "$VIRTUAL_ENV" == "" ]]; then
 fi
 
 # Ensure huggingface_hub is installed
-python -c "import huggingface_hub" 2>/dev/null
+# Use the virtual environment Python directly
+PYTHON_PATH="$PROJECT_ROOT/bin/python"
+$PYTHON_PATH -c "import huggingface_hub" 2>/dev/null
 if [ $? -ne 0 ]; then
     echo -e "${YELLOW}huggingface_hub not installed, installing now...${NC}"
     pip install huggingface_hub
@@ -114,7 +125,7 @@ if [ "$EMBEDDING_ONLY" = true ]; then
         echo -e "${YELLOW}Use --force parameter to force re-download${NC}"
     else
         echo -e "${YELLOW}Downloading... this may take some time${NC}"
-        $MODEL_ENV python -c "from huggingface_hub import snapshot_download; snapshot_download('$EMBEDDING_MODEL_ID', cache_dir='$MODEL_CACHE_DIR', local_dir='$EMBEDDING_MODEL_PATH', $FORCE)"
+        $MODEL_ENV $PYTHON_PATH -c "from huggingface_hub import snapshot_download; snapshot_download('$EMBEDDING_MODEL_ID', cache_dir='$MODEL_CACHE_DIR', local_dir='$EMBEDDING_MODEL_PATH', $FORCE)"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}Embedding model download successful!${NC}"
         else
@@ -132,7 +143,7 @@ if [ "$RERANKER_ONLY" = true ]; then
         echo -e "${YELLOW}Use --force parameter to force re-download${NC}"
     else
         echo -e "${YELLOW}Downloading... this may take some time${NC}"
-        $MODEL_ENV python -c "from huggingface_hub import snapshot_download; snapshot_download('$RERANKER_MODEL_ID', cache_dir='$MODEL_CACHE_DIR', local_dir='$RERANKER_MODEL_PATH', $FORCE)"
+        $MODEL_ENV $PYTHON_PATH -c "from huggingface_hub import snapshot_download; snapshot_download('$RERANKER_MODEL_ID', cache_dir='$MODEL_CACHE_DIR', local_dir='$RERANKER_MODEL_PATH', $FORCE)"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}Reranker model download successful!${NC}"
             
